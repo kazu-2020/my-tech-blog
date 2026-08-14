@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+    groups:
+      textlint:
+        patterns:
+          - "textlint"
+          - "textlint-*"
+          - "@textlint-ja/*"
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
