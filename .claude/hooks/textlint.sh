@@ -33,9 +33,11 @@ esac
 npx textlint --fix "$f" >/dev/null 2>&1
 
 if ! out=$(npx textlint "$f" 2>&1); then
+  # PostToolUse でツール呼び出しをブロックする終了コードは 2（1 は非ブロッキング扱いで
+  # 処理がそのまま続行してしまう）。指摘は stderr に出す必要がある。
   printf '%s\n' \
     "textlint: 自動修正できない指摘があります。手動で修正してください。" \
     "---" \
-    "$out"
-  exit 1
+    "$out" >&2
+  exit 2
 fi
