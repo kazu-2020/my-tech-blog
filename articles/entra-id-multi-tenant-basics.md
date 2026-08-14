@@ -3,7 +3,7 @@ title: "Entra ID でマルチテナントアプリを構築する際に躓いた
 emoji: "🔐"
 type: "tech"
 topics: ["EntraID", "AzureAD", "OAuth", "マルチテナント"]
-published: false
+published: true
 ---
 
 ## はじめに
