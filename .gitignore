@@ -1,3 +1,6 @@
+# draw.io backup files
+**/.$*.drawio.bkp
+
 # Logs
 logs
 *.log
