@@ -1,0 +1,36 @@
+name: textlint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  textlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run textlint
+        run: |
+          files=$(find articles books -type f -name '*.md' 2>/dev/null)
+          if [ -z "$files" ]; then
+            echo "校正対象の Markdown がないためスキップします。"
+            exit 0
+          fi
+          echo "$files" | xargs npx textlint --format pretty-error
