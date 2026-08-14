@@ -19,6 +19,14 @@ textlint で日本語の文章校正を行う。有効なプリセット:
 - `preset-ja-technical-writing` — 技術文書向けルール(句読点、漢字の閉じ開き等)
 - `@textlint-ja/preset-ai-writing` — AI生成文の品質チェック
 
+`articles/` `books/` の Markdown を Edit/Write すると PostToolUse hook (`.claude/hooks/textlint.sh`) が自動で `--fix` → 再チェックを実行し、自動修正できない指摘が残るとエラーとして報告される(書き込み自体は完了しているので、続けて手で直す)。
+- `npx textlint --fix` は自動修正できなかった指摘を報告せず exit 0 を返す。校正漏れの確認は必ず `--fix` なしで実行する
+- textlint は `.textlintrc.json` を cwd から探すため、リポジトリルートで実行する(別ディレクトリだとルールが効かないまま無言で成功する)
+
+## 記事執筆フロー
+
+ネタ整理・構成づくりは `blog-brainstorm` スキル、構成メモから本文の清書は `blog-write` スキルを使う。図版は draw.io で作成し `images/` に `.drawio` と書き出し PNG を併置する。
+
 ## Zenn 記事のフォーマット
 
 記事ファイルは以下の frontmatter を持つ:
