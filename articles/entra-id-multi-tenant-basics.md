@@ -8,16 +8,9 @@ published: true
 
 ## はじめに
 
-他テナントの Microsoft 365 リソースと連携する機能を実装する機会がありました。以前は相手テナント側でアプリを作成してもらい、クライアントシークレットを受け取る方式の設計を経験していました。しかし、この方式では相手側の前準備コストが大きく、リスクのあるシークレット情報をこちらで管理する必要もありました。
+他テナントの Microsoft 365 リソースと連携する機能を実装する機会がありました。以前は相手テナント側でアプリを作成してもらい、クライアントシークレットを受け取る方式の設計を経験していました。しかし、この方式では相手側の前準備コストが大きくなります。さらに、漏洩すれば相手テナントのリソースへ直接アクセスされるシークレットを、こちらで保管し、有効期限ごとに更新する運用も必要でした。
 
-今回は自組織でアプリ登録するマルチテナント構成を採用しました。相手テナントの準備コストを削減でき、シークレット管理も不要になるためです。ただ、この構成で認可の仕組みを理解するのがなかなかしんどかったです。この記事では、私が躓いた4つの基本概念を整理します。
-
-### この記事の要点
-
-- アプリケーション（設計図）とサービスプリンシパル（インスタンス）は別物。ここを押さえると後続の理解がめっちゃ楽になる
-- マルチテナント構成では `AzureADMultipleOrgs` を選択する
-- アクセス許可は「委任」と「アプリケーション」の2種類。相手テナントの管理者目線で選定するのが大事
-- Admin Consent はドキュメントの記載と実際の挙動に差異があるケースもあるので注意
+今回は自組織でアプリ登録するマルチテナント構成を採用しました。相手テナントの準備コストを削減でき、シークレット管理も不要になるためです。ただ、この構成で認可の仕組みを理解するのはなかなかしんどく、腹落ちするまで時間がかかりました。この記事では、私が躓いた4つの基本概念を整理します。
 
 ## アプリケーションとエンタープライズアプリケーション
 
@@ -36,7 +29,7 @@ published: true
 
 ドキュメントを読んで両者の関係が理解できたので、1つ仮説が浮かびました。「自テナントのサービスプリンシパルを削除しても、再度同意フローを実行すれば自動的に再作成されるのではないか」と。
 
-実際に検証してみたところ、予想どおりサービスプリンシパルは再作成されました。アプリケーションはあくまで自テナントに存在しており、相手テナント側のサービスプリンシパルは同意をきっかけに作成される、という理解で正しかったです。
+実際に検証してみたところ、予想どおりサービスプリンシパルは再作成されました。アプリケーションはあくまで自テナントに存在しており、相手テナント側のサービスプリンシパルは同意をきっかけに作成される、という理解で合っていました。
 
 ## サポートされるアカウントの種類
 
@@ -53,12 +46,13 @@ published: true
 参考: [シングルテナント アプリとマルチテナント アプリ](https://learn.microsoft.com/ja-jp/entra/identity-platform/single-and-multi-tenant-apps#who-can-sign-in-to-your-app)
 参考: [サポートされるアカウントの種類の変更](https://learn.microsoft.com/ja-jp/entra/identity-platform/howto-modify-supported-accounts#change-the-application-registration-to-support-different-accounts)
 
-## アクセス許可の選定 — 委任 vs アプリケーション許可
+## アクセス許可の選定
 
 アプリに必要なスコープを付与する方法として、委任（Delegated）とアプリケーション（App-only）の2種類があります。
 
-![委任とアプリケーション許可の概要](https://learn.microsoft.com/ja-jp/entra/identity-platform/media/permissions-consent-overview/access-scenarios.png)
-*出典: [Microsoft Entra ID - アクセス許可と同意の概要](https://learn.microsoft.com/ja-jp/entra/identity-platform/permissions-consent-overview#access-scenarios)*
+両者の違いは、Microsoft のドキュメントにある図が分かりやすいです。
+
+https://learn.microsoft.com/ja-jp/entra/identity-platform/permissions-consent-overview#access-scenarios
 
 ### 委任によるアクセス許可
 
@@ -66,7 +60,7 @@ published: true
 
 ### アプリケーションの許可
 
-ユーザーを介さずアプリ自体の権限で動作します。この場合、付与されたスコープがそのままアクセスできるリソースの範囲に直結します。たとえば `Sites.Read.All` をアプリケーション許可で付与すると、テナント内のすべての SharePoint サイトを読み取れてしまいます。相手テナントの管理者からすると、この広い権限を外部アプリへ与えるのは不安ですよね。
+ユーザーを介さずアプリ自体の権限で動作します。この場合、付与されたスコープがそのままアクセスできるリソースの範囲に直結します。たとえば `Sites.Read.All` をアプリケーション許可で付与すると、テナント内のすべての SharePoint サイトを読み取れてしまいます。
 
 ### Selected スコープという選択肢
 
@@ -76,13 +70,12 @@ published: true
 POST /sites/{siteid}/lists/{listid}/permissions
 ```
 
-相手テナントにこの操作を要求するのはだいぶ面倒くさいです。マルチテナントアプリの導入ハードルを下げたいという目的に反します。
+相手テナントにこの操作を要求するのはだいぶ面倒で、マルチテナントアプリの導入ハードルを下げたいという目的に反します。
 
 ### 私のケースでの判断
 
-委任によるアクセス許可を選択しました。委任であれば、アクセス範囲はサインインユーザーの権限で自然に制限されます。相手テナントの管理者にとっても、アプリに過剰な権限を与えるリスクが低く、安心して導入してもらえやすいと判断したためです。
+今回はユーザーの操作を起点とする連携しかなく、ユーザー不在のバックグラウンドで動かす要件がありませんでした。そこで、委任によるアクセス許可を選択しています。委任であれば、アクセス範囲はサインインユーザーの権限で自然に制限されます。相手テナントの管理者にとっても、アプリに過剰な権限を与えるリスクが低く、導入を判断しやすくなります。
 
-参考: [アクセス許可の概要](https://learn.microsoft.com/ja-jp/entra/identity-platform/permissions-consent-overview#access-scenarios)
 参考: [Graph API アクセス許可リファレンス](https://learn.microsoft.com/ja-jp/graph/permissions-reference)
 参考: [Selected スコープの仕組み](https://learn.microsoft.com/ja-jp/graph/permissions-selected-overview?tabs=http#how-selected-scopes-work-with-sharepoint-and-onedrive-permissions)
 
@@ -90,7 +83,9 @@ POST /sites/{siteid}/lists/{listid}/permissions
 
 委任によるアクセス許可を選択しても、スコープによっては一般ユーザーの同意だけでは利用できません。管理者による事前の同意（Admin Consent）を要求するスコープが存在します。
 
-私のケースでは、一部のスコープで Admin Consent を要求されました。ドキュメントの記載だけでは判断しきれないこともあるので、実際に動かして確認するのが確実です。
+判断を誤りかけたのが、リファレンスの記載と実際の挙動が食い違った点です。Graph API のアクセス許可リファレンスでは、[Sites.Read.All](https://learn.microsoft.com/ja-jp/graph/permissions-reference#sitesreadall) と [Sites.ReadWrite.All](https://learn.microsoft.com/ja-jp/graph/permissions-reference#sitesreadwriteall) のどちらも、委任のカテゴリでは管理者の同意は不要と記載されています。ところが実際に同意フローを通すと、いずれも Admin Consent を要求されました。
+
+相手テナント側の上位の設定、たとえばユーザーによる同意を制限するポリシーが影響している可能性はありますが、そこまでは調査できていません。原因はどうあれ、リファレンスの記載だけを見て「管理者の手を借りずに導入できる」と設計すると、あとから前提が崩れます。実際に同意フローを通して確認するのが確実です。
 
 ### Admin Consent URL の構築
 
@@ -100,7 +95,7 @@ Admin Consent が必要な場合、相手テナントの管理者に事前認可
 https://login.microsoftonline.com/organizations/adminconsent?client_id={client-id}
 ```
 
-管理者がこの URL にアクセスして同意すると、テナント全体でアプリの利用が許可されます。これにより、一般ユーザーは個別に同意する必要がなくなります。
+管理者がこの URL にアクセスして同意すると、同意した時点でアプリに設定されているアクセス許可について、テナント全体で利用が許可されます。その範囲内であれば、一般ユーザーは個別に同意する必要がありません。逆に、あとからスコープを追加した場合は、あらためて管理者の同意が必要になります。
 
 参考: [マルチテナントアプリの Admin Consent](https://learn.microsoft.com/ja-jp/entra/identity-platform/howto-convert-app-to-be-multi-tenant#admin-consent)
 参考: [テナント全体の管理者の同意 URL の構築](https://learn.microsoft.com/ja-jp/entra/identity/enterprise-apps/grant-admin-consent?pivots=portal#construct-the-url-for-granting-tenant-wide-admin-consent)
@@ -112,8 +107,6 @@ Entra ID のマルチテナントアプリを構築する際に理解が必要�
 1. アプリケーションが設計図で、エンタープライズアプリケーション（サービスプリンシパル）がそのインスタンスにあたる。相手テナントには同意を通じてサービスプリンシパルが自動作成される
 2. サポートされるアカウントの種類は、マルチテナント構成なら `AzureADMultipleOrgs` を選択する
 3. 委任許可とアプリケーション許可は、相手テナントの管理者の視点でリスクと導入コストを考慮して選定する
-4. Admin Consent はスコープによって管理者の事前同意が必要になる。ドキュメントの記載と実際の挙動が異なる場合もある
+4. Admin Consent はスコープによって管理者の事前同意が必要になる。委任のアクセス許可でも要求されることがあり、リファレンスの記載と一致しない場合がある
 
-これらの概念を順番に理解していくと、次の判断がシュッと決まるようになります。特にアプリケーションとサービスプリンシパルの関係を最初に押さえたことで、後続の設定項目の意味がすんなり入ってきました。
-
-Admin Consent まわりのドキュメントと実挙動の差異については、まだ理解しきれていない部分があります。同じような状況に遭遇した方がいたら、ぜひ知見を共有してほしいです。
+委任のアクセス許可で Admin Consent が要求された原因については、まだ突き止められていません。同じような状況に遭遇した方がいたら、ぜひ知見を共有してほしいです。
