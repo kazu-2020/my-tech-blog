@@ -25,7 +25,7 @@ textlint で日本語の文章校正を行う。有効なプリセット:
 
 ## 記事執筆フロー
 
-ネタ整理・構成づくりは `blog-brainstorm` スキル、構成メモから本文の清書は `blog-write` スキルを使う。図版は draw.io で作成し `images/` に `.drawio` と書き出し PNG を併置する。
+ネタ整理・構成づくりは `blog-brainstorm` スキル、構成メモから本文の清書は `blog-write` スキルを使う。書き上げたあとの推敲は `blog-style` スキル(文章規範に沿って論証・冗長・演出・表記を点検する)。図版は draw.io で作成し `images/` に `.drawio` と書き出し PNG を併置する。
 
 ## Zenn 記事のフォーマット
 
